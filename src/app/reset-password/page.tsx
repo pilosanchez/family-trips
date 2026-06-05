@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plane } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
 export default function ResetPasswordPage() {
+  const [ready, setReady] = useState(false)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [loading, setLoading] = useState(false)
@@ -15,12 +16,26 @@ export default function ResetPasswordPage() {
   const router = useRouter()
   const supabase = createClient()
 
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get('code')
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) setError('El link expiró o es inválido. Solicita uno nuevo.')
+        else setReady(true)
+      })
+    } else {
+      supabase.auth.getSession().then(({ data }) => {
+        if (data.session) setReady(true)
+        else setError('Link inválido. Solicita un nuevo link desde el login.')
+      })
+    }
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (password !== confirm) { setError('Las contraseñas no coinciden.'); return }
     if (password.length < 6) { setError('Mínimo 6 caracteres.'); return }
     setLoading(true)
-    setError('')
     const { error } = await supabase.auth.updateUser({ password })
     if (error) {
       setError(error.message)
@@ -42,31 +57,27 @@ export default function ResetPasswordPage() {
         </div>
 
         <div className="card p-6">
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Input
-              label="Nueva contraseña"
-              id="password"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres"
-              required
-              autoFocus
-            />
-            <Input
-              label="Confirmar contraseña"
-              id="confirm"
-              type="password"
-              value={confirm}
-              onChange={e => setConfirm(e.target.value)}
-              placeholder="Repite la contraseña"
-              required
-            />
-            {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
-            <Button type="submit" disabled={loading} className="w-full justify-center mt-1">
-              {loading ? 'Guardando...' : 'Guardar contraseña'}
-            </Button>
-          </form>
+          {!ready && !error && (
+            <p className="text-sm text-stone-500 text-center py-4">Verificando link...</p>
+          )}
+          {error && !ready && (
+            <div>
+              <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg mb-4">{error}</p>
+              <Button variant="secondary" className="w-full justify-center" onClick={() => router.push('/auth')}>
+                Volver al login
+              </Button>
+            </div>
+          )}
+          {ready && (
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <Input label="Nueva contraseña" id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" required autoFocus />
+              <Input label="Confirmar contraseña" id="confirm" type="password" value={confirm} onChange={e => setConfirm(e.target.value)} placeholder="Repite la contraseña" required />
+              {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+              <Button type="submit" disabled={loading} className="w-full justify-center mt-1">
+                {loading ? 'Guardando...' : 'Guardar contraseña'}
+              </Button>
+            </form>
+          )}
         </div>
       </div>
     </div>
