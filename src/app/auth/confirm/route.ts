@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const supabase = await createClient()
     const { error } = await supabase.auth.verifyOtp({ type: type as any, token_hash })
     if (!error) {
-      return NextResponse.redirect(new URL('/auth/reset-password', request.url))
+      return NextResponse.redirect(new URL('/reset-password', request.url))
     }
   }
 

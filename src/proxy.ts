@@ -25,8 +25,11 @@ export async function proxy(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  const isAuthPage = request.nextUrl.pathname.startsWith('/auth')
-  const isProtected = !isAuthPage && request.nextUrl.pathname !== '/'
+  const path = request.nextUrl.pathname
+  const isAuthPage = path.startsWith('/auth')
+  const isResetPage = path === '/reset-password'
+  const isPublic = isAuthPage || isResetPage || path === '/' || path.startsWith('/share')
+  const isProtected = !isPublic
 
   if (!user && isProtected) {
     return NextResponse.redirect(new URL('/auth', request.url))
