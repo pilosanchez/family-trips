@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
-type Mode = 'login' | 'signup' | 'forgot'
+type Mode = 'login' | 'forgot'
 
 export default function AuthPage() {
   const [mode, setMode] = useState<Mode>('login')
@@ -32,28 +32,18 @@ export default function AuthPage() {
       if (error) {
         setError(error.message)
       } else {
-        setMessage('Te enviamos un link para resetear tu contraseña. Revisa tu email.')
+        setMessage('Te enviamos un link al email. Revísalo.')
       }
       setLoading(false)
       return
     }
 
-    if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({ email, password })
-      if (error) {
-        setError(error.message)
-      } else {
-        setMessage('Cuenta creada. Inicia sesión directamente.')
-        setMode('login')
-      }
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      setError('Email o contraseña incorrectos.')
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) {
-        setError('Email o contraseña incorrectos.')
-      } else {
-        router.push('/trips')
-        router.refresh()
-      }
+      router.push('/trips')
+      router.refresh()
     }
     setLoading(false)
   }
@@ -70,17 +60,6 @@ export default function AuthPage() {
         </div>
 
         <div className="card p-6">
-          {mode !== 'forgot' && (
-            <div className="flex gap-1 mb-6 bg-stone-100 p-1 rounded-lg">
-              <button onClick={() => setMode('login')} className={`flex-1 py-1.5 text-sm rounded-md transition-colors ${mode === 'login' ? 'bg-white text-stone-900 font-medium shadow-sm' : 'text-stone-500'}`}>
-                Iniciar sesión
-              </button>
-              <button onClick={() => setMode('signup')} className={`flex-1 py-1.5 text-sm rounded-md transition-colors ${mode === 'signup' ? 'bg-white text-stone-900 font-medium shadow-sm' : 'text-stone-500'}`}>
-                Crear cuenta
-              </button>
-            </div>
-          )}
-
           {mode === 'forgot' && (
             <div className="mb-5">
               <h2 className="text-base font-semibold text-stone-900">Resetear contraseña</h2>
@@ -89,27 +68,23 @@ export default function AuthPage() {
           )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Input label="Email" id="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tu@email.com" required autoFocus />
-
-            {mode !== 'forgot' && (
-              <Input label="Contraseña" id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mínimo 6 caracteres" required />
+            <Input label="Email" id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tu@email.com" required autoFocus />
+            {mode === 'login' && (
+              <Input label="Contraseña" id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Contraseña" required />
             )}
-
             {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
             {message && <p className="text-sm text-emerald-700 bg-emerald-50 px-3 py-2 rounded-lg">{message}</p>}
-
-            <Button type="submit" disabled={loading} className="w-full justify-center mt-1">
-              {loading ? 'Cargando...' : mode === 'login' ? 'Entrar' : mode === 'signup' ? 'Crear cuenta' : 'Enviar link'}
+            <Button type="submit" disabled={loading} className="w-full justify-center">
+              {loading ? 'Cargando...' : mode === 'login' ? 'Entrar' : 'Enviar link'}
             </Button>
           </form>
 
           <div className="mt-4 text-center">
-            {mode === 'login' && (
+            {mode === 'login' ? (
               <button onClick={() => { setMode('forgot'); setError(''); setMessage('') }} className="text-xs text-stone-400 hover:text-stone-700 transition-colors">
                 ¿Olvidaste tu contraseña?
               </button>
-            )}
-            {mode === 'forgot' && (
+            ) : (
               <button onClick={() => { setMode('login'); setError(''); setMessage('') }} className="text-xs text-stone-400 hover:text-stone-700 transition-colors">
                 ← Volver al login
               </button>
