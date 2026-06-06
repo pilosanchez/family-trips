@@ -12,7 +12,7 @@ type Mode = 'login' | 'forgot'
 export default function AuthPage() {
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
+  const [password, setPassword] = useState('nueva123')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
