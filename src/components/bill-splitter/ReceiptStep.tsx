@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Camera, Plus, Loader2 } from 'lucide-react'
+import { Camera, ImageIcon, Plus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
 export interface BillItem {
@@ -19,6 +19,7 @@ interface Props {
 
 export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
   const fileRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState('')
 
@@ -77,14 +78,21 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex gap-3">
+      <div className="flex gap-2">
         <input
           ref={fileRef}
           type="file"
           accept="image/*"
           capture="environment"
           className="hidden"
-          onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])}
+          onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); e.target.value = '' }}
+        />
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); e.target.value = '' }}
         />
         <Button
           variant="secondary"
@@ -93,11 +101,19 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
           className="flex-1 justify-center gap-2"
         >
           {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-          {scanning ? 'Leyendo...' : 'Foto del ticket'}
+          {scanning ? 'Leyendo...' : 'Cámara'}
         </Button>
-        <Button variant="ghost" onClick={addItem} className="flex items-center gap-1.5">
+        <Button
+          variant="secondary"
+          onClick={() => galleryRef.current?.click()}
+          disabled={scanning}
+          className="flex-1 justify-center gap-2"
+        >
+          <ImageIcon className="w-4 h-4" />
+          Galería
+        </Button>
+        <Button variant="ghost" onClick={addItem} className="px-3">
           <Plus className="w-4 h-4" />
-          Agregar
         </Button>
       </div>
 
