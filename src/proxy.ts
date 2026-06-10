@@ -28,7 +28,7 @@ export async function proxy(request: NextRequest) {
   const path = request.nextUrl.pathname
   const isAuthPage = path.startsWith('/auth')
   const isResetPage = path === '/reset-password'
-  const isPublic = isAuthPage || isResetPage || path === '/' || path.startsWith('/share') || path === '/bill-splitter'
+  const isPublic = isAuthPage || isResetPage || path === '/' || path.startsWith('/share') || path === '/bill-splitter' || path === '/api/receipt'
   const isProtected = !isPublic
 
   if (!user && isProtected) {
