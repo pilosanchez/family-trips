@@ -92,29 +92,34 @@ export function ItemsStep({ items, onItemsChange, tip, tipType, onTipChange, onB
       <div className="border border-stone-200 rounded-xl p-4 flex flex-col gap-3">
         <p className="text-sm font-medium text-stone-700">Propina</p>
         <div className="flex gap-2">
-          <div className="flex border border-stone-200 rounded-lg overflow-hidden text-sm">
+          <div className="flex border border-stone-200 rounded-lg overflow-hidden text-sm shrink-0">
             <button
               onClick={() => onTipChange(tip, 'percent')}
-              className={`px-3 py-1.5 transition-colors ${tipType === 'percent' ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-50'}`}
+              className={`px-3 py-1.5 transition-colors ${tipType === 'percent' ? 'bg-stone-900 text-white font-semibold' : 'text-stone-500 hover:bg-stone-50'}`}
             >
               %
             </button>
             <button
               onClick={() => onTipChange(tip, 'fixed')}
-              className={`px-3 py-1.5 transition-colors ${tipType === 'fixed' ? 'bg-stone-900 text-white' : 'text-stone-600 hover:bg-stone-50'}`}
+              className={`px-3 py-1.5 transition-colors ${tipType === 'fixed' ? 'bg-stone-900 text-white font-semibold' : 'text-stone-500 hover:bg-stone-50'}`}
             >
               $
             </button>
           </div>
-          <input
-            type="number"
-            min="0"
-            step={tipType === 'percent' ? '1' : '0.01'}
-            value={tip || ''}
-            onChange={e => onTipChange(parseFloat(e.target.value) || 0, tipType)}
-            placeholder={tipType === 'percent' ? '10' : '0.00'}
-            className="flex-1 px-3 py-1.5 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-stone-400"
-          />
+          <div className="flex-1 flex flex-col gap-1">
+            <input
+              type="number"
+              min="0"
+              step={tipType === 'percent' ? '1' : '0.01'}
+              value={tip || ''}
+              onChange={e => onTipChange(parseFloat(e.target.value) || 0, tipType)}
+              placeholder={tipType === 'percent' ? '10' : '0.00'}
+              className="w-full px-3 py-1.5 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-stone-400"
+            />
+            {tipType === 'percent' && tip > 0 && (
+              <p className="text-xs text-amber-600 font-medium pl-1">= ${tipAmount.toFixed(2)} en propina</p>
+            )}
+          </div>
         </div>
         <div className="flex gap-2">
           {[10, 15, 18, 20].map(pct => (
