@@ -1,14 +1,14 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { Camera, Upload, Plus, Loader2 } from 'lucide-react'
+import { Camera, Plus, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 
 export interface BillItem {
   id: string
   name: string
-  price: number
+  price: number  // total for this line (unitPrice × qty)
+  qty: number    // number of units
 }
 
 interface Props {
@@ -42,9 +42,10 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
         if (!res.ok || data.error) {
           setError(data.error || 'Error al leer el ticket')
         } else if (data.items?.length) {
-          const newItems: BillItem[] = data.items.map((it: { name: string; price: number }, i: number) => ({
+          const newItems: BillItem[] = data.items.map((it: { name: string; price: number; qty?: number }, i: number) => ({
             id: `ocr-${i}-${Date.now()}`,
             name: it.name,
+            qty: Math.max(1, Math.round(Number(it.qty) || 1)),
             price: Number(it.price) || 0,
           }))
           onItemsChange([...items, ...newItems])
@@ -61,10 +62,10 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
   }
 
   const addItem = () => {
-    onItemsChange([...items, { id: `manual-${Date.now()}`, name: '', price: 0 }])
+    onItemsChange([...items, { id: `manual-${Date.now()}`, name: '', price: 0, qty: 1 }])
   }
 
-  const updateItem = (id: string, field: 'name' | 'price', value: string | number) => {
+  const updateItem = (id: string, field: 'name' | 'price' | 'qty', value: string | number) => {
     onItemsChange(items.map(it => it.id === id ? { ...it, [field]: value } : it))
   }
 
@@ -96,7 +97,7 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
         </Button>
         <Button variant="ghost" onClick={addItem} className="flex items-center gap-1.5">
           <Plus className="w-4 h-4" />
-          Agregar item
+          Agregar
         </Button>
       </div>
 
@@ -106,19 +107,28 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
 
       {items.length > 0 && (
         <div className="flex flex-col gap-2">
-          <div className="grid grid-cols-[1fr_100px_32px] gap-2 text-xs text-stone-400 font-medium px-1">
+          <div className="grid grid-cols-[1fr_52px_88px_32px] gap-2 text-xs text-stone-400 font-medium px-1">
             <span>Item</span>
-            <span>Precio</span>
+            <span className="text-center">Cant.</span>
+            <span>Total</span>
             <span />
           </div>
           {items.map(item => (
-            <div key={item.id} className="grid grid-cols-[1fr_100px_32px] gap-2 items-center">
+            <div key={item.id} className="grid grid-cols-[1fr_52px_88px_32px] gap-2 items-center">
               <input
                 type="text"
                 value={item.name}
                 onChange={e => updateItem(item.id, 'name', e.target.value)}
-                placeholder="Nombre del item"
+                placeholder="Nombre"
                 className="px-3 py-1.5 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-stone-400"
+              />
+              <input
+                type="number"
+                min="1"
+                step="1"
+                value={item.qty || 1}
+                onChange={e => updateItem(item.id, 'qty', Math.max(1, parseInt(e.target.value) || 1))}
+                className="px-2 py-1.5 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-stone-400 text-center"
               />
               <input
                 type="number"

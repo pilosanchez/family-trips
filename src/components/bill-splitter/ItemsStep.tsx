@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import type { BillItem } from './ReceiptStep'
 
@@ -19,7 +18,7 @@ export function ItemsStep({ items, onItemsChange, tip, tipType, onTipChange, onB
   const tipAmount = tipType === 'percent' ? subtotal * (tip / 100) : Number(tip) || 0
   const total = subtotal + tipAmount
 
-  const updateItem = (id: string, field: 'name' | 'price', value: string | number) => {
+  const updateItem = (id: string, field: 'name' | 'price' | 'qty', value: string | number) => {
     onItemsChange(items.map(it => it.id === id ? { ...it, [field]: value } : it))
   }
 
@@ -28,43 +27,60 @@ export function ItemsStep({ items, onItemsChange, tip, tipType, onTipChange, onB
   }
 
   const addItem = () => {
-    onItemsChange([...items, { id: `manual-${Date.now()}`, name: '', price: 0 }])
+    onItemsChange([...items, { id: `manual-${Date.now()}`, name: '', price: 0, qty: 1 }])
   }
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col gap-2">
-        <div className="grid grid-cols-[1fr_100px_32px] gap-2 text-xs text-stone-400 font-medium px-1">
+        <div className="grid grid-cols-[1fr_52px_88px_32px] gap-2 text-xs text-stone-400 font-medium px-1">
           <span>Item</span>
-          <span>Precio</span>
+          <span className="text-center">Cant.</span>
+          <span>Total</span>
           <span />
         </div>
-        {items.map(item => (
-          <div key={item.id} className="grid grid-cols-[1fr_100px_32px] gap-2 items-center">
-            <input
-              type="text"
-              value={item.name}
-              onChange={e => updateItem(item.id, 'name', e.target.value)}
-              placeholder="Nombre del item"
-              className="px-3 py-1.5 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-stone-400"
-            />
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={item.price || ''}
-              onChange={e => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
-              placeholder="0.00"
-              className="px-3 py-1.5 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-stone-400"
-            />
-            <button
-              onClick={() => removeItem(item.id)}
-              className="w-8 h-8 flex items-center justify-center text-stone-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors text-lg leading-none"
-            >
-              ×
-            </button>
-          </div>
-        ))}
+        {items.map(item => {
+          const unitPrice = item.qty > 1 ? (Number(item.price) || 0) / item.qty : null
+          return (
+            <div key={item.id} className="flex flex-col gap-0.5">
+              <div className="grid grid-cols-[1fr_52px_88px_32px] gap-2 items-center">
+                <input
+                  type="text"
+                  value={item.name}
+                  onChange={e => updateItem(item.id, 'name', e.target.value)}
+                  placeholder="Nombre"
+                  className="px-3 py-1.5 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-stone-400"
+                />
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={item.qty || 1}
+                  onChange={e => updateItem(item.id, 'qty', Math.max(1, parseInt(e.target.value) || 1))}
+                  className="px-2 py-1.5 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-stone-400 text-center"
+                />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={item.price || ''}
+                  onChange={e => updateItem(item.id, 'price', parseFloat(e.target.value) || 0)}
+                  placeholder="0.00"
+                  className="px-3 py-1.5 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-1 focus:ring-stone-400"
+                />
+                <button
+                  onClick={() => removeItem(item.id)}
+                  className="w-8 h-8 flex items-center justify-center text-stone-400 hover:text-red-500 rounded-lg hover:bg-red-50 transition-colors text-lg leading-none"
+                >
+                  ×
+                </button>
+              </div>
+              {unitPrice !== null && (
+                <p className="text-xs text-stone-400 pl-1">${unitPrice.toFixed(2)} c/u</p>
+              )}
+            </div>
+          )
+        })}
         <button
           onClick={addItem}
           className="text-xs text-stone-400 hover:text-stone-700 text-left px-1 pt-1 transition-colors"

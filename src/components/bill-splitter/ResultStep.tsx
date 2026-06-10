@@ -19,11 +19,16 @@ interface Props {
 
 const AVATARS = ['👨', '👩', '👦', '👧', '🧑', '👴', '👵', '🙂']
 
+// itemQtys: itemId → personId → qty taken by that person
+type ItemQtys = Record<string, Record<string, number>>
+
 export function ResultStep({ items, tip, tipType, people, trips, onSaveToTrip, onBack, onReset }: Props) {
   const [mode, setMode] = useState<'even' | 'byItem'>('even')
-  const [itemAssignments, setItemAssignments] = useState<Record<string, string[]>>(() => {
-    const init: Record<string, string[]> = {}
-    items.forEach(it => { init[it.id] = [] })
+  const [itemQtys, setItemQtys] = useState<ItemQtys>(() => {
+    const init: ItemQtys = {}
+    items.forEach(it => {
+      init[it.id] = {}
+    })
     return init
   })
   const [copied, setCopied] = useState(false)
@@ -36,16 +41,16 @@ export function ResultStep({ items, tip, tipType, people, trips, onSaveToTrip, o
   const total = subtotal + tipAmount
 
   const payers = people.filter(p => p.pays)
-
   const evenShare = payers.length > 0 ? total / payers.length : 0
 
-  const toggleAssignment = (itemId: string, personId: string) => {
-    setItemAssignments(prev => {
-      const current = prev[itemId] || []
-      const next = current.includes(personId)
-        ? current.filter(id => id !== personId)
-        : [...current, personId]
-      return { ...prev, [itemId]: next }
+  const adjustQty = (itemId: string, personId: string, delta: number, maxQty: number) => {
+    setItemQtys(prev => {
+      const personQtys = prev[itemId] || {}
+      const current = personQtys[personId] || 0
+      const totalAssigned = Object.values(personQtys).reduce((a, b) => a + b, 0)
+      const otherAssigned = totalAssigned - current
+      const newVal = Math.max(0, Math.min(maxQty - otherAssigned, current + delta))
+      return { ...prev, [itemId]: { ...personQtys, [personId]: newVal } }
     })
   }
 
@@ -54,17 +59,22 @@ export function ResultStep({ items, tip, tipType, people, trips, onSaveToTrip, o
     payers.forEach(p => { shares[p.id] = 0 })
 
     items.forEach(item => {
-      const assigned = itemAssignments[item.id] || []
-      const payerAssigned = assigned.filter(id => payers.some(p => p.id === id))
-      if (payerAssigned.length === 0) return
-      const share = (Number(item.price) || 0) / payerAssigned.length
-      payerAssigned.forEach(id => { shares[id] = (shares[id] || 0) + share })
+      const personQtys = itemQtys[item.id] || {}
+      const totalAssigned = Object.values(personQtys).reduce((a, b) => a + b, 0)
+      if (totalAssigned === 0) return
+      const unitPrice = (Number(item.price) || 0) / item.qty
+      payers.forEach(p => {
+        const taken = personQtys[p.id] || 0
+        shares[p.id] = (shares[p.id] || 0) + taken * unitPrice
+      })
     })
 
-    const itemTotal = Object.values(shares).reduce((a, b) => a + b, 0)
-    if (itemTotal > 0) {
-      const tipRatio = tipAmount / itemTotal
-      payers.forEach(p => { shares[p.id] = shares[p.id] * (1 + tipRatio) })
+    // distribute tip proportionally to each person's item subtotal
+    const itemsTotal = Object.values(shares).reduce((a, b) => a + b, 0)
+    if (itemsTotal > 0 && tipAmount > 0) {
+      payers.forEach(p => {
+        shares[p.id] = shares[p.id] * (1 + tipAmount / itemsTotal)
+      })
     }
 
     return shares
@@ -116,32 +126,63 @@ export function ResultStep({ items, tip, tipType, people, trips, onSaveToTrip, o
       {mode === 'byItem' && (
         <div className="border border-stone-200 rounded-xl overflow-hidden">
           <div className="px-4 py-2 bg-stone-50 border-b border-stone-100">
-            <p className="text-xs text-stone-500 font-medium">Selecciona quién ordenó cada item</p>
+            <p className="text-xs text-stone-500 font-medium">¿Cuántas unidades tomó cada uno?</p>
           </div>
           <div className="divide-y divide-stone-100">
-            {items.map(item => (
-              <div key={item.id} className="px-4 py-3 flex flex-col gap-2">
-                <div className="flex justify-between text-sm">
-                  <span className="text-stone-700">{item.name || 'Item'}</span>
-                  <span className="text-stone-500">${(Number(item.price) || 0).toFixed(2)}</span>
+            {items.map(item => {
+              const unitPrice = (Number(item.price) || 0) / item.qty
+              const personQtys = itemQtys[item.id] || {}
+              const totalAssigned = Object.values(personQtys).reduce((a, b) => a + b, 0)
+              const remaining = item.qty - totalAssigned
+              return (
+                <div key={item.id} className="px-4 py-3 flex flex-col gap-2.5">
+                  <div className="flex justify-between items-baseline">
+                    <span className="text-sm font-medium text-stone-800">{item.name || 'Item'}</span>
+                    <span className="text-xs text-stone-400">
+                      ${unitPrice.toFixed(2)} c/u · {item.qty} unid.
+                      {remaining > 0 && <span className="text-amber-500 ml-1">({remaining} sin asignar)</span>}
+                      {remaining === 0 && <span className="text-emerald-600 ml-1">✓</span>}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {payers.map((p, i) => {
+                      const taken = personQtys[p.id] || 0
+                      const canIncrease = totalAssigned < item.qty
+                      return (
+                        <div key={p.id} className="flex items-center gap-2">
+                          <span className="text-base w-6 text-center select-none">{AVATARS[i % AVATARS.length]}</span>
+                          <span className="flex-1 text-sm text-stone-700">{p.name}</span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={() => adjustQty(item.id, p.id, -1, item.qty)}
+                              disabled={taken === 0}
+                              className="w-7 h-7 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base font-medium leading-none flex items-center justify-center"
+                            >
+                              −
+                            </button>
+                            <span className={`w-8 text-center text-sm font-semibold ${taken > 0 ? 'text-stone-900' : 'text-stone-300'}`}>
+                              {taken}
+                            </span>
+                            <button
+                              onClick={() => adjustQty(item.id, p.id, 1, item.qty)}
+                              disabled={!canIncrease}
+                              className="w-7 h-7 rounded-lg border border-stone-200 text-stone-500 hover:bg-stone-50 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-base font-medium leading-none flex items-center justify-center"
+                            >
+                              +
+                            </button>
+                          </div>
+                          {taken > 0 && (
+                            <span className="text-xs text-stone-400 w-14 text-right">
+                              ${(taken * unitPrice).toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {payers.map((p, i) => (
-                    <button
-                      key={p.id}
-                      onClick={() => toggleAssignment(item.id, p.id)}
-                      className={`flex items-center gap-1 px-2 py-1 text-xs rounded-lg border transition-colors ${
-                        (itemAssignments[item.id] || []).includes(p.id)
-                          ? 'bg-stone-900 text-white border-stone-900'
-                          : 'border-stone-200 text-stone-600 hover:bg-stone-50'
-                      }`}
-                    >
-                      {AVATARS[i % AVATARS.length]} {p.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
