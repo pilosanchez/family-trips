@@ -27,7 +27,8 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
     // createImageBitmap is fully Promise-based — no callback race conditions
     // Falls back to raw FileReader if unavailable (old Safari < 15.4)
     try {
-      const bitmap = await createImageBitmap(file)
+      // imageOrientation:'from-image' applies EXIF rotation (portrait photos on mobile)
+      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' } as ImageBitmapOptions)
       const MAX = 1024
       let { width, height } = bitmap
       if (width > MAX || height > MAX) {
@@ -80,7 +81,7 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
       try { data = JSON.parse(text) } catch { throw new Error('server') }
 
       if (!res.ok || data.error) {
-        setError(data.error || 'No se pudo leer el ticket.')
+        setError(data.error || 'Error del servidor. Intenta de nuevo.')
       } else if (data.items?.length) {
         onItemsChange([...items, ...data.items.map((it, i) => ({
           id: `ocr-${i}-${Date.now()}`,
@@ -89,7 +90,7 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
           price: Number(it.price) || 0,
         }))])
       } else {
-        setError('No se encontraron items. Agrégalos manualmente.')
+        setError('No se reconocieron items. Toma una foto más cercana y nítida, o agrégalos manualmente.')
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : ''
