@@ -24,11 +24,8 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
   const [error, setError] = useState('')
 
   const getBase64 = async (file: File): Promise<{ base64: string; mediaType: string }> => {
-    // createImageBitmap is fully Promise-based — no callback race conditions
-    // Falls back to raw FileReader if unavailable (old Safari < 15.4)
     try {
-      // imageOrientation:'from-image' applies EXIF rotation (portrait photos on mobile)
-      const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' } as ImageBitmapOptions)
+      const bitmap = await createImageBitmap(file)
       const MAX = 1024
       let { width, height } = bitmap
       if (width > MAX || height > MAX) {
@@ -43,21 +40,11 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
       ctx.drawImage(bitmap, 0, 0, width, height)
       bitmap.close()
       const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
-      return { base64: dataUrl.split(',')[1], mediaType: 'image/jpeg' }
-    } catch {
-      // Fallback: raw file — enforce 2MB limit to stay under Vercel 4.5MB body limit
-      if (file.size > 2 * 1024 * 1024) {
-        throw new Error('too-large')
-      }
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve({
-          base64: (reader.result as string).split(',')[1],
-          mediaType: file.type || 'image/jpeg',
-        })
-        reader.onerror = () => reject(new Error('read'))
-        reader.readAsDataURL(file)
-      })
+      const b64 = dataUrl.split(',')[1]
+      if (!b64) throw new Error('empty-canvas')
+      return { base64: b64, mediaType: 'image/jpeg' }
+    } catch (e) {
+      throw new Error(`compress-fail:${e instanceof Error ? e.message : String(e)}`)
     }
   }
 
@@ -78,10 +65,15 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
 
       const text = await res.text()
       let data: { items?: { name: string; price: number; qty?: number }[]; error?: string }
-      try { data = JSON.parse(text) } catch { throw new Error('server') }
+      try {
+        data = JSON.parse(text)
+      } catch {
+        setError(`Error del servidor (${res.status}). Intenta de nuevo.`)
+        return
+      }
 
       if (!res.ok || data.error) {
-        setError(data.error || 'Error del servidor. Intenta de nuevo.')
+        setError(data.error || `Error ${res.status}. Intenta de nuevo.`)
       } else if (data.items?.length) {
         onItemsChange([...items, ...data.items.map((it, i) => ({
           id: `ocr-${i}-${Date.now()}`,
@@ -90,16 +82,16 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
           price: Number(it.price) || 0,
         }))])
       } else {
-        setError('No se reconocieron items. Toma una foto más cercana y nítida, o agrégalos manualmente.')
+        setError('No se reconocieron items. Toma una foto más cercana y nítida.')
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : ''
-      if (err instanceof Error && err.name === 'AbortError') {
-        setError('Tiempo agotado. Toma una foto más cercana al ticket.')
-      } else if (msg === 'too-large') {
-        setError('Foto muy grande. Toma una foto más cercana al ticket.')
+      const name = err instanceof Error ? err.name : ''
+      const msg = err instanceof Error ? err.message : String(err)
+      if (name === 'AbortError') {
+        setError('Tiempo agotado (20s). Toma una foto más cercana.')
       } else {
-        setError('No se pudo leer el ticket. Agrégalos manualmente.')
+        // Show real error so user can report it
+        setError(`Error: ${msg}`)
       }
     } finally {
       clearTimeout(timeout)
