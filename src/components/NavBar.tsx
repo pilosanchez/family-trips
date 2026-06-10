@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Plane, Home, Users, LogOut, Settings } from 'lucide-react'
+import { Plane, Home, Users, LogOut, Settings, Calculator } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 export function NavBar() {
@@ -35,6 +35,7 @@ export function NavBar() {
         <nav className="flex items-center gap-1">
           {navLink('/trips', 'Viajes', <Home className="w-4 h-4" />)}
           {navLink('/family', 'Familia', <Users className="w-4 h-4" />, true)}
+          {navLink('/bill-splitter', '', <Calculator className="w-4 h-4" />, true)}
           {navLink('/settings', '', <Settings className="w-4 h-4" />, true)}
           <button
             onClick={handleSignOut}
