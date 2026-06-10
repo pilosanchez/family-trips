@@ -56,7 +56,8 @@ Rules:
       return NextResponse.json({ items: [] })
     }
   } catch (error) {
-    console.error('Receipt OCR error:', error)
-    return NextResponse.json({ error: 'Error al conectar con el lector. Intenta de nuevo.' }, { status: 500 })
+    const msg = error instanceof Error ? error.message : String(error)
+    console.error('Receipt OCR error:', msg)
+    return NextResponse.json({ error: `OCR error: ${msg}` }, { status: 500 })
   }
 }
