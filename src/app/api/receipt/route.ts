@@ -61,7 +61,9 @@ Rules:
       return NextResponse.json({ items: [] })
     }
   } catch (error) {
-    console.error('Receipt OCR error:', error instanceof Error ? error.message : error)
-    return NextResponse.json({ error: 'Error al conectar con el lector. Intenta de nuevo.' }, { status: 500 })
+    const name = error instanceof Error ? error.constructor.name : 'Unknown'
+    const msg = error instanceof Error ? error.message.slice(0, 120) : String(error).slice(0, 120)
+    console.error('Receipt OCR error:', name, msg)
+    return NextResponse.json({ error: `${name}: ${msg}` }, { status: 500 })
   }
 }
