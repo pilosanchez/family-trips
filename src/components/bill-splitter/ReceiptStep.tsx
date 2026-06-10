@@ -23,41 +23,73 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState('')
 
+  const compressImage = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = () => reject(new Error('No se pudo leer el archivo'))
+      reader.onload = (e) => {
+        const img = new Image()
+        img.onerror = () => reject(new Error('No se pudo cargar la imagen'))
+        img.onload = () => {
+          const MAX = 1200
+          let { width, height } = img
+          if (width > MAX || height > MAX) {
+            if (width > height) { height = Math.round((height / width) * MAX); width = MAX }
+            else { width = Math.round((width / height) * MAX); height = MAX }
+          }
+          const canvas = document.createElement('canvas')
+          canvas.width = width
+          canvas.height = height
+          canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+          resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1])
+        }
+        img.src = e.target?.result as string
+      }
+      reader.readAsDataURL(file)
+    })
+
   const handleFile = async (file: File) => {
     setScanning(true)
     setError('')
     try {
-      const reader = new FileReader()
-      reader.onload = async (e) => {
-        const dataUrl = e.target?.result as string
-        const base64 = dataUrl.split(',')[1]
-        const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif'
+      const base64 = await compressImage(file)
 
-        const res = await fetch('/api/receipt', {
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 25000)
+
+      let res: Response
+      try {
+        res = await fetch('/api/receipt', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64, mediaType }),
+          body: JSON.stringify({ imageBase64: base64, mediaType: 'image/jpeg' }),
+          signal: controller.signal,
         })
-
-        const data = await res.json()
-        if (!res.ok || data.error) {
-          setError(data.error || 'Error al leer el ticket')
-        } else if (data.items?.length) {
-          const newItems: BillItem[] = data.items.map((it: { name: string; price: number; qty?: number }, i: number) => ({
-            id: `ocr-${i}-${Date.now()}`,
-            name: it.name,
-            qty: Math.max(1, Math.round(Number(it.qty) || 1)),
-            price: Number(it.price) || 0,
-          }))
-          onItemsChange([...items, ...newItems])
-        } else {
-          setError('No se encontraron items. Agrega los items manualmente.')
-        }
-        setScanning(false)
+      } finally {
+        clearTimeout(timeout)
       }
-      reader.readAsDataURL(file)
-    } catch {
-      setError('Error al procesar la imagen')
+
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        setError(data.error || 'Error al leer el ticket')
+      } else if (data.items?.length) {
+        const newItems: BillItem[] = data.items.map((it: { name: string; price: number; qty?: number }, i: number) => ({
+          id: `ocr-${i}-${Date.now()}`,
+          name: it.name,
+          qty: Math.max(1, Math.round(Number(it.qty) || 1)),
+          price: Number(it.price) || 0,
+        }))
+        onItemsChange([...items, ...newItems])
+      } else {
+        setError('No se encontraron items. Agrega los items manualmente.')
+      }
+    } catch (err: unknown) {
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('La lectura tardó demasiado. Intenta con una foto más clara o agrega los items manualmente.')
+      } else {
+        setError('Error al procesar la imagen. Intenta de nuevo.')
+      }
+    } finally {
       setScanning(false)
     }
   }
