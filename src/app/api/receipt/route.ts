@@ -11,6 +11,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Se requiere imagen' }, { status: 400 })
     }
 
+    const key = process.env.ANTHROPIC_API_KEY ?? ''
+    if (!key.startsWith('sk-ant-') || key.includes(' ')) {
+      return NextResponse.json({ error: `API key inválida (largo: ${key.length}, inicio: ${key.slice(0, 10)})` }, { status: 500 })
+    }
+
     const response = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 1024,
