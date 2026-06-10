@@ -26,7 +26,7 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
   const getBase64 = async (file: File): Promise<{ base64: string; mediaType: string }> => {
     try {
       const bitmap = await createImageBitmap(file)
-      const MAX = 1024
+      const MAX = 1600
       let { width, height } = bitmap
       if (width > MAX || height > MAX) {
         if (width > height) { height = Math.round((height / width) * MAX); width = MAX }
@@ -39,7 +39,7 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
       if (!ctx) throw new Error('no-ctx')
       ctx.drawImage(bitmap, 0, 0, width, height)
       bitmap.close()
-      const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.92)
       const b64 = dataUrl.split(',')[1]
       if (!b64) throw new Error('empty-canvas')
       return { base64: b64, mediaType: 'image/jpeg' }
