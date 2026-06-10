@@ -23,83 +23,85 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
   const [scanning, setScanning] = useState(false)
   const [error, setError] = useState('')
 
-  const compressImage = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onerror = () => reject(new Error('lectura'))
-      reader.onload = (e) => {
-        const src = e.target?.result as string
-        const img = new Image()
-        img.onerror = () => reject(new Error('imagen'))
-        img.onload = () => {
-          try {
-            const MAX = 1200
-            let { width, height } = img
-            if (width > MAX || height > MAX) {
-              if (width > height) { height = Math.round((height / width) * MAX); width = MAX }
-              else { width = Math.round((width / height) * MAX); height = MAX }
-            }
-            const canvas = document.createElement('canvas')
-            canvas.width = width
-            canvas.height = height
-            const ctx = canvas.getContext('2d')
-            if (!ctx) { reject(new Error('canvas')); return }
-            ctx.drawImage(img, 0, 0, width, height)
-            const out = canvas.toDataURL('image/jpeg', 0.82)
-            resolve(out.split(',')[1] ?? out)
-          } catch (e) {
-            reject(e)
-          }
-        }
-        img.src = src
+  const getBase64 = async (file: File): Promise<{ base64: string; mediaType: string }> => {
+    // createImageBitmap is fully Promise-based — no callback race conditions
+    // Falls back to raw FileReader if unavailable (old Safari < 15.4)
+    try {
+      const bitmap = await createImageBitmap(file)
+      const MAX = 1024
+      let { width, height } = bitmap
+      if (width > MAX || height > MAX) {
+        if (width > height) { height = Math.round((height / width) * MAX); width = MAX }
+        else { width = Math.round((width / height) * MAX); height = MAX }
       }
-      reader.readAsDataURL(file)
-    })
+      const canvas = document.createElement('canvas')
+      canvas.width = width
+      canvas.height = height
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('no-ctx')
+      ctx.drawImage(bitmap, 0, 0, width, height)
+      bitmap.close()
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82)
+      return { base64: dataUrl.split(',')[1], mediaType: 'image/jpeg' }
+    } catch {
+      // Fallback: raw file — enforce 2MB limit to stay under Vercel 4.5MB body limit
+      if (file.size > 2 * 1024 * 1024) {
+        throw new Error('too-large')
+      }
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve({
+          base64: (reader.result as string).split(',')[1],
+          mediaType: file.type || 'image/jpeg',
+        })
+        reader.onerror = () => reject(new Error('read'))
+        reader.readAsDataURL(file)
+      })
+    }
+  }
 
   const handleFile = async (file: File) => {
     setScanning(true)
     setError('')
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 20000)
     try {
-      const base64 = await compressImage(file)
-
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 20000)
+      const { base64, mediaType } = await getBase64(file)
 
       const res = await fetch('/api/receipt', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64, mediaType: 'image/jpeg' }),
+        body: JSON.stringify({ imageBase64: base64, mediaType }),
         signal: controller.signal,
-      }).finally(() => clearTimeout(timeout))
+      })
 
+      const text = await res.text()
       let data: { items?: { name: string; price: number; qty?: number }[]; error?: string }
-      try {
-        data = await res.json()
-      } catch {
-        throw new Error('respuesta')
-      }
+      try { data = JSON.parse(text) } catch { throw new Error('server') }
 
       if (!res.ok || data.error) {
-        setError(data.error || 'No se pudo leer el ticket')
+        setError(data.error || 'No se pudo leer el ticket.')
       } else if (data.items?.length) {
-        const newItems: BillItem[] = data.items.map((it, i) => ({
+        onItemsChange([...items, ...data.items.map((it, i) => ({
           id: `ocr-${i}-${Date.now()}`,
           name: it.name,
           qty: Math.max(1, Math.round(Number(it.qty) || 1)),
           price: Number(it.price) || 0,
-        }))
-        onItemsChange([...items, ...newItems])
+        }))])
       } else {
-        setError('No se encontraron items. Agréga los manualmente.')
+        setError('No se encontraron items. Agrégalos manualmente.')
       }
     } catch (err: unknown) {
-      const name = err instanceof Error ? err.message : ''
-      if (name === 'AbortError' || (err instanceof Error && err.name === 'AbortError')) {
-        setError('La lectura tardó demasiado. Intenta con una foto más nítida.')
+      const msg = err instanceof Error ? err.message : ''
+      if (err instanceof Error && err.name === 'AbortError') {
+        setError('Tiempo agotado. Toma una foto más cercana al ticket.')
+      } else if (msg === 'too-large') {
+        setError('Foto muy grande. Toma una foto más cercana al ticket.')
       } else {
-        setError('No se pudo procesar la imagen. Intenta de nuevo o agrega los items manualmente.')
+        setError('No se pudo leer el ticket. Agrégalos manualmente.')
       }
     } finally {
+      clearTimeout(timeout)
       setScanning(false)
     }
   }
