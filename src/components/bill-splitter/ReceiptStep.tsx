@@ -26,24 +26,32 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
   const compressImage = (file: File): Promise<string> =>
     new Promise((resolve, reject) => {
       const reader = new FileReader()
-      reader.onerror = () => reject(new Error('No se pudo leer el archivo'))
+      reader.onerror = () => reject(new Error('lectura'))
       reader.onload = (e) => {
+        const src = e.target?.result as string
         const img = new Image()
-        img.onerror = () => reject(new Error('No se pudo cargar la imagen'))
+        img.onerror = () => reject(new Error('imagen'))
         img.onload = () => {
-          const MAX = 1200
-          let { width, height } = img
-          if (width > MAX || height > MAX) {
-            if (width > height) { height = Math.round((height / width) * MAX); width = MAX }
-            else { width = Math.round((width / height) * MAX); height = MAX }
+          try {
+            const MAX = 1200
+            let { width, height } = img
+            if (width > MAX || height > MAX) {
+              if (width > height) { height = Math.round((height / width) * MAX); width = MAX }
+              else { width = Math.round((width / height) * MAX); height = MAX }
+            }
+            const canvas = document.createElement('canvas')
+            canvas.width = width
+            canvas.height = height
+            const ctx = canvas.getContext('2d')
+            if (!ctx) { reject(new Error('canvas')); return }
+            ctx.drawImage(img, 0, 0, width, height)
+            const out = canvas.toDataURL('image/jpeg', 0.82)
+            resolve(out.split(',')[1] ?? out)
+          } catch (e) {
+            reject(e)
           }
-          const canvas = document.createElement('canvas')
-          canvas.width = width
-          canvas.height = height
-          canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
-          resolve(canvas.toDataURL('image/jpeg', 0.82).split(',')[1])
         }
-        img.src = e.target?.result as string
+        img.src = src
       }
       reader.readAsDataURL(file)
     })
@@ -55,25 +63,26 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
       const base64 = await compressImage(file)
 
       const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 25000)
+      const timeout = setTimeout(() => controller.abort(), 20000)
 
-      let res: Response
+      const res = await fetch('/api/receipt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imageBase64: base64, mediaType: 'image/jpeg' }),
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeout))
+
+      let data: { items?: { name: string; price: number; qty?: number }[]; error?: string }
       try {
-        res = await fetch('/api/receipt', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ imageBase64: base64, mediaType: 'image/jpeg' }),
-          signal: controller.signal,
-        })
-      } finally {
-        clearTimeout(timeout)
+        data = await res.json()
+      } catch {
+        throw new Error('respuesta')
       }
 
-      const data = await res.json()
       if (!res.ok || data.error) {
-        setError(data.error || 'Error al leer el ticket')
+        setError(data.error || 'No se pudo leer el ticket')
       } else if (data.items?.length) {
-        const newItems: BillItem[] = data.items.map((it: { name: string; price: number; qty?: number }, i: number) => ({
+        const newItems: BillItem[] = data.items.map((it, i) => ({
           id: `ocr-${i}-${Date.now()}`,
           name: it.name,
           qty: Math.max(1, Math.round(Number(it.qty) || 1)),
@@ -81,13 +90,14 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
         }))
         onItemsChange([...items, ...newItems])
       } else {
-        setError('No se encontraron items. Agrega los items manualmente.')
+        setError('No se encontraron items. Agréga los manualmente.')
       }
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') {
-        setError('La lectura tardó demasiado. Intenta con una foto más clara o agrega los items manualmente.')
+      const name = err instanceof Error ? err.message : ''
+      if (name === 'AbortError' || (err instanceof Error && err.name === 'AbortError')) {
+        setError('La lectura tardó demasiado. Intenta con una foto más nítida.')
       } else {
-        setError('Error al procesar la imagen. Intenta de nuevo.')
+        setError('No se pudo procesar la imagen. Intenta de nuevo o agrega los items manualmente.')
       }
     } finally {
       setScanning(false)
