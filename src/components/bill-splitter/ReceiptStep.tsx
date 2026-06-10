@@ -84,14 +84,14 @@ export function ReceiptStep({ items, onItemsChange, onNext }: Props) {
           type="file"
           accept="image/*"
           capture="environment"
-          className="hidden"
+          className="absolute opacity-0 w-0 h-0 overflow-hidden"
           onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); e.target.value = '' }}
         />
         <input
           ref={galleryRef}
           type="file"
           accept="image/*"
-          className="hidden"
+          className="absolute opacity-0 w-0 h-0 overflow-hidden"
           onChange={e => { if (e.target.files?.[0]) handleFile(e.target.files[0]); e.target.value = '' }}
         />
         <Button
