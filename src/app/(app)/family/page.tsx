@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus, Users, Pencil, Trash2, User, Mail, Phone, CreditCard, Calendar } from 'lucide-react'
+import { Plus, Users, Pencil, Trash2, Mail, Phone, CreditCard, Calendar, FileText } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -116,10 +116,27 @@ export default function FamilyPage() {
                     <span>{m.phone}</span>
                   </div>
                 )}
-                {!m.document_number && !m.email && !m.phone && (
+                {!m.document_number && !m.email && !m.phone && (!m.documents || m.documents.length === 0) && (
                   <p className="text-xs text-stone-300 italic">Sin datos adicionales</p>
                 )}
               </div>
+
+              {m.documents && m.documents.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-stone-100 flex flex-wrap gap-1.5">
+                  {m.documents.map((doc, di) => (
+                    <a
+                      key={di}
+                      href={doc.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-2 py-1 bg-stone-50 border border-stone-200 rounded-lg text-xs text-stone-600 hover:text-stone-900 hover:border-stone-300 transition-colors"
+                    >
+                      <FileText className="w-3 h-3 text-stone-400 shrink-0" />
+                      {doc.label}{doc.note ? ` · ${doc.note}` : ''}
+                    </a>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>

@@ -8,6 +8,13 @@ export type ExpenseCategory = 'flight' | 'accommodation' | 'transport' | 'food' 
 export type PackingCategory = 'documents' | 'clothing' | 'toiletries' | 'electronics' | 'medications' | 'other'
 export type DocumentType = 'passport' | 'id_card' | 'visa' | 'insurance' | 'vaccination' | 'other'
 
+export interface ParticipantDoc {
+  type: 'passport' | 'minor_permit' | 'credit_card' | 'visa' | 'insurance' | 'other'
+  label: string
+  note?: string  // e.g. "Bolivia", "España" — useful for members with 2 passports
+  url: string
+}
+
 export interface Participant {
   id: string
   user_id: string
@@ -18,6 +25,7 @@ export interface Participant {
   birth_date?: string
   email?: string
   phone?: string
+  documents?: ParticipantDoc[]
   created_at: string
 }
 
