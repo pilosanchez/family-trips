@@ -26,9 +26,15 @@ export async function proxy(request: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
 
   const path = request.nextUrl.pathname
+
+  // Root redirect: send to app or bill-splitter depending on auth
+  if (path === '/') {
+    return NextResponse.redirect(new URL(user ? '/trips' : '/bill-splitter', request.url))
+  }
+
   const isAuthPage = path.startsWith('/auth')
   const isResetPage = path === '/reset-password'
-  const isPublic = isAuthPage || isResetPage || path === '/' || path.startsWith('/share') || path.startsWith('/bill-splitter') || path === '/api/receipt'
+  const isPublic = isAuthPage || isResetPage || path.startsWith('/share') || path.startsWith('/bill-splitter') || path === '/api/receipt'
   const isProtected = !isPublic
 
   if (!user && isProtected) {
