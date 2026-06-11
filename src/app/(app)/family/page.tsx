@@ -28,11 +28,18 @@ export default function FamilyPage() {
   useEffect(() => { fetchMembers() }, [])
 
   const handleSave = async (data: Partial<Participant>) => {
+    let dbError
     if (editing) {
-      await supabase.from('participants').update(data).eq('id', editing.id)
+      const { error } = await supabase.from('participants').update(data).eq('id', editing.id)
+      dbError = error
     } else {
       const { data: { user } } = await supabase.auth.getUser()
-      await supabase.from('participants').insert({ ...data, user_id: user?.id })
+      const { error } = await supabase.from('participants').insert({ ...data, user_id: user?.id })
+      dbError = error
+    }
+    if (dbError) {
+      alert(`Error al guardar: ${dbError.message}`)
+      return
     }
     await fetchMembers()
     setShowForm(false)

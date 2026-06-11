@@ -31,15 +31,19 @@ function DocRow({
   onRemove: () => void
 }) {
   const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const supabase = createClient()
 
   const handleFile = async (file: File) => {
     setUploading(true)
+    setUploadError('')
     const ext = file.name.split('.').pop()
     const path = `participants/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
     const { data, error } = await supabase.storage.from('trips').upload(path, file)
-    if (!error && data) {
+    if (error) {
+      setUploadError(error.message)
+    } else if (data) {
       const { data: { publicUrl } } = supabase.storage.from('trips').getPublicUrl(data.path)
       onUrlChange(publicUrl)
     }
@@ -97,6 +101,7 @@ function DocRow({
               {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
               {uploading ? 'Subiendo...' : 'Subir archivo'}
             </button>
+            {uploadError && <p className="text-xs text-red-500 mt-1">{uploadError}</p>}
           </>
         )}
       </div>
