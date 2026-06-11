@@ -100,8 +100,6 @@ function DocRow({
           </>
         )}
       </div>
-
-      </div>
     </div>
   )
 }
