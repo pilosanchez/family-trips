@@ -84,7 +84,7 @@ export default function JoinFamilyPage() {
         .select('*', { count: 'exact', head: true })
         .eq('family_id', m.family_id)
 
-      const isOwner = (m.families as { owner_id: string })?.owner_id === user.id
+      const isOwner = (m.families as unknown as { owner_id: string })?.owner_id === user.id
       if (count === 1 && isOwner) {
         await supabase.from('families').delete().eq('id', m.family_id)
       }
