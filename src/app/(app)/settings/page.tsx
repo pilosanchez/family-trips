@@ -77,7 +77,7 @@ export default function SettingsPage() {
     }
 
     const { data: { user } } = await supabase.auth.getUser()
-    const isOwner = (membership.families as { owner_id: string })?.owner_id === user?.id
+    const isOwner = (membership.families as unknown as { owner_id: string })?.owner_id === user?.id
 
     if (!isOwner) {
       alert('Solo el administrador de la familia puede generar invitaciones.')
