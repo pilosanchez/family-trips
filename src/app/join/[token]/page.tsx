@@ -43,7 +43,7 @@ export default function JoinFamilyPage() {
       } else {
         setInviteId(invite.id)
         setFamilyId(invite.family_id)
-        setFamilyName((invite.families as { name: string })?.name ?? 'Mi Familia')
+        setFamilyName((invite.families as unknown as { name: string })?.name ?? 'Mi Familia')
       }
       setLoading(false)
     }
