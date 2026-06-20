@@ -1,19 +1,22 @@
 import { format, differenceInDays, parseISO } from 'date-fns'
 import { es } from 'date-fns/locale'
 
+// Strip timezone so flight/activity times are treated as "airport local time", not UTC
+function parseNaive(date: string | Date): Date {
+  if (typeof date !== 'string') return date
+  return parseISO(date.slice(0, 16))
+}
+
 export function formatDate(date: string | Date, fmt = 'dd MMM yyyy'): string {
-  const d = typeof date === 'string' ? parseISO(date) : date
-  return format(d, fmt, { locale: es })
+  return format(parseNaive(date), fmt, { locale: es })
 }
 
 export function formatDateTime(date: string | Date): string {
-  const d = typeof date === 'string' ? parseISO(date) : date
-  return format(d, "dd MMM yyyy 'a las' HH:mm", { locale: es })
+  return format(parseNaive(date), "dd MMM yyyy 'a las' HH:mm", { locale: es })
 }
 
 export function formatTime(date: string | Date): string {
-  const d = typeof date === 'string' ? parseISO(date) : date
-  return format(d, 'HH:mm')
+  return format(parseNaive(date), 'HH:mm')
 }
 
 export function tripDuration(startDate: string, endDate: string): number {
